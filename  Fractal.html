@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aurora Prism: Fractal Mandala</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+        }
+        canvas {
+            display: block;
+        }
+        .controls {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            color: white;
+            font-family: 'Montserrat', sans-serif;
+            pointer-events: none;
+            text-shadow: 0 0 10px rgba(0,255,255,0.5);
+        }
+        .vignette {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle, transparent 40%, black 150%);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="vignette"></div>
+    
+    <div class="controls">
+        <h1 class="text-3xl font-thin tracking-widest opacity-80">AURORA PRISM</h1>
+        <p class="text-[10px] tracking-[5px] uppercase text-cyan-500">Symmetric Geometry Simulation</p>
+        <p class="mt-4 text-[9px] opacity-40">MOVE MOUSE TO DRAW • CLICK TO CLEAR</p>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        let points = [];
+        let hue = 0;
+        const symmetry = 12;
+        const mouse = { x: 0, y: 0, lastX: 0, lastY: 0 };
+        let angle = 0;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            
+            ctx.translate(width / 2, height / 2);
+            clear();
+        }
+
+        function clear() {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, width, height);
+            ctx.restore();
+        }
+
+        window.addEventListener('resize', resize);
+        window.addEventListener('mousemove', (e) => {
+            mouse.lastX = mouse.x;
+            mouse.lastY = mouse.y;
+           
+            mouse.x = e.clientX - width / 2;
+            mouse.y = e.clientY - height / 2;
+        });
+
+        window.addEventListener('mousedown', clear);
+
+        function drawMandala() {
+          
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.03)';
+            ctx.fillRect(0, 0, width, height);
+            ctx.restore();
+
+            hue += 0.5;
+            angle += 0.002; 
+
+            
+            const dx = mouse.x - mouse.lastX;
+            const dy = mouse.y - mouse.lastY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            
+           
+            for (let i = 0; i < symmetry; i++) {
+                ctx.save();
+                ctx.rotate((Math.PI * 2 / symmetry) * i + angle);
+                
+             
+                ctx.beginPath();
+                ctx.moveTo(mouse.lastX, mouse.lastY);
+                ctx.lineTo(mouse.x, mouse.y);
+                
+                ctx.strokeStyle = `hsla(${hue + i * 10}, 100%, 60%, 0.8)`;
+                ctx.lineWidth = Math.max(0.5, 10 - dist/2);
+                ctx.lineCap = 'round';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = `hsla(${hue + i * 10}, 100%, 60%, 0.5)`;
+                
+                ctx.stroke();
+                
+               
+                ctx.scale(1, -1);
+                ctx.beginPath();
+                ctx.moveTo(mouse.lastX, mouse.lastY);
+                ctx.lineTo(mouse.x, mouse.y);
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+        }
+
+        resize();
+
+        function animate() {
+            drawMandala();
+            requestAnimationFrame(animate);
+        }
+
+        
+        mouse.x = mouse.lastX = 0;
+        mouse.y = mouse.lastY = 0;
+        
+        animate();
+    </script>
+</body>
+</html>

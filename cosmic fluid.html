@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultra Satisfying Cosmic Nebula</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #020205;
+            font-family: 'Inter', sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        #ui-overlay {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+            width: 100%;
+        }
+        .nebula-text {
+            background: linear-gradient(to right, #00f2fe, #7117ea, #ea6227, #f0ff00);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradient-flow 5s linear infinite;
+            font-weight: 900;
+            letter-spacing: -2px;
+        }
+        @keyframes gradient-flow {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
+        }
+        .instruction {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-overlay">
+        <h1 class="text-6xl md:text-8xl nebula-text">COSMIC FLUID</h1>
+        <p class="instruction">Tap or Click to trigger Supernova</p>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        /**
+         * Ultra-Satisfying Fluid Particle System
+         * Features: Additive Blending, Velocity Smoothing, Supernova Burst
+         */
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let particlesArray = [];
+        let spots = [];
+        let hue = 0;
+
+        const mouse = {
+            x: undefined,
+            y: undefined,
+            radius: 150
+        }
+
+        window.addEventListener('resize', function() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        window.addEventListener('mousemove', function(event) {
+            mouse.x = event.x;
+            mouse.y = event.y;
+            // Mouse move se bhi thode particles create hote hain
+            for (let i = 0; i < 2; i++) {
+                spots.push(new Particle());
+            }
+        });
+
+        // Supernova Burst on Click
+        window.addEventListener('mousedown', function(event) {
+            for (let i = 0; i < 30; i++) {
+                spots.push(new Particle());
+            }
+        });
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        class Particle {
+            constructor() {
+                this.x = mouse.x || canvas.width / 2;
+                this.y = mouse.y || canvas.height / 2;
+                this.size = Math.random() * 4 + 1;
+                this.speedX = Math.random() * 4 - 2;
+                this.speedY = Math.random() * 4 - 2;
+                this.color = 'hsla(' + hue + ', 100%, 50%, 0.8)';
+                this.life = 0;
+                this.maxLife = Math.random() * 100 + 50;
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                if (this.size > 0.1) this.size -= 0.03;
+                this.life++;
+            }
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Background Static Stars for depth
+        const stars = [];
+        for (let i = 0; i < 150; i++) {
+            stars.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 1.5,
+                opacity: Math.random()
+            });
+        }
+
+        function drawStars() {
+            ctx.fillStyle = 'white';
+            stars.forEach(star => {
+                ctx.globalAlpha = star.opacity;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+                // Twinkle effect
+                star.opacity += (Math.random() * 0.02 - 0.01);
+                if (star.opacity < 0) star.opacity = 0;
+                if (star.opacity > 1) star.opacity = 1;
+            });
+            ctx.globalAlpha = 1;
+        }
+
+        function handleParticles() {
+            for (let i = 0; i < spots.length; i++) {
+                spots[i].update();
+                spots[i].draw();
+
+                for (let j = i; j < spots.length; j++) {
+                    const dx = spots[i].x - spots[j].x;
+                    const dy = spots[i].y - spots[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 90) {
+                        ctx.beginPath();
+                        ctx.strokeStyle = spots[i].color;
+                        ctx.lineWidth = spots[i].size / 3;
+                        ctx.moveTo(spots[i].x, spots[i].y);
+                        ctx.lineTo(spots[j].x, spots[j].y);
+                        ctx.stroke();
+                        ctx.closePath();
+                    }
+                }
+
+                if (spots[i].size <= 0.3 || spots[i].life > spots[i].maxLife) {
+                    spots.splice(i, 1);
+                    i--;
+                }
+            }
+        }
+
+        function animate() {
+            // Dark blueish fade for trail
+            ctx.fillStyle = 'rgba(2, 2, 5, 0.15)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawStars();
+
+            // Additive blending for glow
+            ctx.globalCompositeOperation = 'lighter';
+            handleParticles();
+            ctx.globalCompositeOperation = 'source-over';
+            
+            hue += 2;
+            requestAnimationFrame(animate);
+        }
+
+        window.onload = function() {
+            animate();
+        };
+
+    </script>
+</body>
+</html>
