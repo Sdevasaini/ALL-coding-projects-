@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Star Galaxy Text</title>
+<style>
+body{
+  margin:0;
+  overflow:hidden;
+  background:black;
+}
+canvas{
+  position:absolute;
+  top:0;
+  left:0;
+}
+input{
+  position:fixed;
+  bottom:30px;
+  left:50%;
+  transform:translateX(-50%);
+  padding:12px 25px;
+  background:#111;
+  border:1px solid #555;
+  color:white;
+  outline:none;
+}
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+<input type="text" id="textInput" placeholder="Type something..." maxlength="12">
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const STAR_COUNT = 2500;  
+let particles = [];
+let forming = false;
+
+class Star{
+  constructor(){
+    this.reset();
+    this.size = Math.random()*1.5 + 0.5;
+  }
+
+  reset(){
+    this.x = Math.random()*canvas.width;
+    this.y = Math.random()*canvas.height;
+    this.tx = this.x;
+    this.ty = this.y;
+  }
+
+  update(){
+    this.x += (this.tx - this.x)*0.07;
+    this.y += (this.ty - this.y)*0.07;
+  }
+
+  draw(){
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,this.size,0,Math.PI*2);
+    ctx.fillStyle="white";
+    ctx.fill();
+  }
+}
+
+function init(){
+  particles=[];
+  for(let i=0;i<STAR_COUNT;i++){
+    particles.push(new Star());
+  }
+}
+
+function formText(str){
+  forming = true;
+
+  const off = document.createElement("canvas");
+  const offCtx = off.getContext("2d");
+
+  off.width = canvas.width;
+  off.height = canvas.height;
+
+  offCtx.fillStyle="white";
+  offCtx.font="bold 180px Arial";
+  offCtx.textAlign="center";
+  offCtx.fillText(str,off.width/2,off.height/2);
+
+  const data = offCtx.getImageData(0,0,off.width,off.height).data;
+
+  let points = [];
+
+  for(let y=0;y<off.height;y+=5){
+    for(let x=0;x<off.width;x+=5){
+      const index=(y*off.width+x)*4;
+      if(data[index+3]>150){
+        points.push({x,y});
+      }
+    }
+  }
+
+  for(let i=0;i<particles.length;i++){
+    if(points[i]){
+      particles[i].tx = points[i].x;
+      particles[i].ty = points[i].y;
+    }else{
+      particles[i].tx = Math.random()*canvas.width;
+      particles[i].ty = Math.random()*canvas.height;
+    }
+  }
+}
+
+function scatter(){
+  forming = false;
+  particles.forEach(p=>{
+    p.tx = Math.random()*canvas.width;
+    p.ty = Math.random()*canvas.height;
+  });
+}
+
+function animate(){
+  ctx.fillStyle="rgba(0,0,0,0.35)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  particles.forEach(p=>{
+    p.update();
+    p.draw();
+  });
+
+  requestAnimationFrame(animate);
+}
+
+init();
+animate();
+
+document.getElementById("textInput").addEventListener("input",(e)=>{
+  if(e.target.value.trim()===""){
+    scatter();
+  }else{
+    formText(e.target.value);
+  }
+});
+</script>
+
+</body>
+</html>
