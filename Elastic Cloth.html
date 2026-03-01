@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Physics Cloth</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #020205;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        #ui {
+            position: absolute;
+            top: 25px;
+            left: 25px;
+            pointer-events: none;
+            color: white;
+        }
+        .glow {
+            text-shadow: 0 0 10px #00f2ff, 0 0 20px #00f2ff;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h1 class="text-2xl font-black text-cyan-400 glow tracking-widest uppercase">Neon Mesh v2.0</h1>
+        <p class="text-[10px] text-blue-300 opacity-50 tracking-[0.3em] mt-1">Holographic Physics Simulation</p>
+        <div class="mt-6 space-y-2 text-xs text-blue-200/60 font-mono">
+            <p>> MOUSE LEFT: DRAG MESH</p>
+            <p>> MOUSE RIGHT: TEAR FABRIC</p>
+            <p>> PRESS [R]: RECONSTRUCT</p>
+        </div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        const physics_accuracy = 5;
+        const gravity = 0.45;
+        const cloth_width = 70;
+        const cloth_height = 45;
+        const spacing = 11;
+        const tear_distance = 65;
+        const friction = 0.985;
+
+        let mouse = { x: 0, y: 0, px: 0, py: 0, down: false, button: 0 };
+        let points = [];
+
+        class Point {
+            constructor(x, y, pinned = false) {
+                this.x = x;
+                this.y = y;
+                this.px = x;
+                this.py = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.pinned = pinned;
+                this.constraints = [];
+            }
+
+            update() {
+                if (this.pinned) return;
+
+                const dx = this.x - mouse.x;
+                const dy = this.y - mouse.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (mouse.down) {
+                    if (mouse.button === 0 && dist < 60) {
+                        this.px = this.x - (mouse.x - mouse.px) * 1.5;
+                        this.py = this.y - (mouse.y - mouse.py) * 1.5;
+                    } else if (mouse.button === 2 && dist < 35) {
+                        this.constraints = [];
+                    }
+                }
+
+                this.vx = (this.x - this.px) * friction;
+                this.vy = (this.y - this.py) * friction;
+
+                this.px = this.x;
+                this.py = this.y;
+
+                this.x += this.vx;
+                this.y += this.vy + gravity;
+            }
+
+            draw() {
+                if (this.constraints.length === 0) return;
+                
+                // Dynamic Color based on Y position (Rainbow effect)
+                const hue = (this.y / canvas.height) * 120 + 180; // Blue to Purple range
+                ctx.strokeStyle = `hsla(${hue}, 100%, 60%, 0.6)`;
+                ctx.lineWidth = 1.2;
+
+                for (let c of this.constraints) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(c.to.x, c.to.y);
+                    ctx.stroke();
+                }
+            }
+
+            resolve() {
+                if (this.pinned) return;
+                for (let i = this.constraints.length - 1; i >= 0; i--) {
+                    const c = this.constraints[i];
+                    const dx = c.to.x - this.x;
+                    const dy = c.to.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist > tear_distance) {
+                        this.constraints.splice(i, 1);
+                        continue;
+                    }
+
+                    const diff = (c.len - dist) / dist;
+                    const ox = dx * diff * 0.5;
+                    const oy = dy * diff * 0.5;
+
+                    this.x -= ox;
+                    this.y -= oy;
+                    if (!c.to.pinned) {
+                        c.to.x += ox;
+                        c.to.y += oy;
+                    }
+                }
+            }
+        }
+
+        function initCloth() {
+            points = [];
+            const totalWidth = cloth_width * spacing;
+            const startX = (window.innerWidth - totalWidth) / 2;
+            const startY = 40;
+
+            for (let y = 0; y <= cloth_height; y++) {
+                for (let x = 0; x <= cloth_width; x++) {
+                    const p = new Point(startX + x * spacing, startY + y * spacing, y === 0);
+                    if (x > 0) p.constraints.push({ to: points[points.length - 1], len: spacing });
+                    if (y > 0) p.constraints.push({ to: points[points.length - (cloth_width + 1)], len: spacing });
+                    points.push(p);
+                }
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initCloth();
+        });
+
+        window.addEventListener('mousedown', e => {
+            mouse.down = true;
+            mouse.button = e.button;
+        });
+        window.addEventListener('mouseup', () => mouse.down = false);
+        window.addEventListener('mousemove', e => {
+            mouse.px = mouse.x;
+            mouse.py = mouse.y;
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+        window.addEventListener('contextmenu', e => e.preventDefault());
+        window.addEventListener('keydown', e => { if (e.key.toLowerCase() === 'r') initCloth(); });
+
+        function animate() {
+            // Motion blur trail
+            ctx.fillStyle = 'rgba(2, 2, 5, 0.25)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Physics steps
+            for (let j = 0; j < physics_accuracy; j++) {
+                for (let p of points) p.resolve();
+            }
+
+            // Draw and update
+            for (let p of points) {
+                p.update();
+                p.draw();
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        initCloth();
+        animate();
+    </script>
+</body>
+</html>
