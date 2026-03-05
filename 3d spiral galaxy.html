@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Cosmic Galaxy</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            overflow: hidden;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            pointer-events: none;
+            text-shadow: 0 0 10px rgba(0, 150, 255, 0.8);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            opacity: 0.8;
+        }
+
+        .controls-hint {
+            font-size: 0.7rem;
+            margin-top: 5px;
+            color: #888;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h1>Deep Space Explorer</h1>
+        <div class="controls-hint">DRAG TO ROTATE • SCROLL TO ZOOM</div>
+    </div>
+
+   
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        let scene, camera, renderer, galaxy;
+        let mouseX = 0, mouseY = 0;
+        let targetRotationX = 0.5, targetRotationY = 0;
+
+        function init() {
+           
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 4;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
+
+            
+            const starCount = 15000;
+            const positions = new Float32Array(starCount * 3);
+            const colors = new Float32Array(starCount * 3);
+
+            const colorInside = new THREE.Color('#ffccff'); 
+            const colorOutside = new THREE.Color('#1b3984');
+
+            for (let i = 0; i < starCount; i++) {
+                const i3 = i * 3;
+
+                
+                const radius = Math.random() * 5;
+                const spinAngle = radius * 5;
+                const branchAngle = (i % 3) * ((Math.PI * 2) / 3); 
+
+                
+                const randomX = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 0.3 * radius;
+                const randomY = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 0.3 * radius;
+                const randomZ = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 0.3 * radius;
+
+                positions[i3] = Math.cos(spinAngle + branchAngle) * radius + randomX;
+                positions[i3 + 1] = randomY;
+                positions[i3 + 2] = Math.sin(spinAngle + branchAngle) * radius + randomZ;
+
+               
+                const mixedColor = colorInside.clone();
+                mixedColor.lerp(colorOutside, radius / 5);
+
+                colors[i3] = mixedColor.r;
+                colors[i3 + 1] = mixedColor.g;
+                colors[i3 + 2] = mixedColor.b;
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            
+            const material = new THREE.PointsMaterial({
+                size: 0.015,
+                sizeAttenuation: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending,
+                vertexColors: true
+            });
+
+            
+            galaxy = new THREE.Points(geometry, material);
+            scene.add(galaxy);
+
+           
+            window.addEventListener('resize', onWindowResize, false);
+            document.addEventListener('mousemove', onMouseMove, false);
+            document.addEventListener('wheel', onMouseWheel, false);
+
+            animate();
+        }
+
+        function onMouseMove(event) {
+           
+            if (event.buttons === 1) { 
+                targetRotationY += event.movementX * 0.005;
+                targetRotationX += event.movementY * 0.005;
+            }
+        }
+
+        function onMouseWheel(event) {
+            camera.position.z += event.deltaY * 0.002;
+            camera.position.z = Math.max(1, Math.min(10, camera.position.z));
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+           
+            galaxy.rotation.y += 0.001;
+
+           
+            galaxy.rotation.x += (targetRotationX - galaxy.rotation.x) * 0.05;
+            galaxy.rotation.y += (targetRotationY - galaxy.rotation.y) * 0.05;
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
