@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heart tunnel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #010004;
+            font-family: 'Inter', sans-serif;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        .warp-prompt {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(0, 240, 255, 0.7);
+            font-size: 13px;
+            letter-spacing: 4px;
+            pointer-events: none;
+            animation: pulseText 1.5s infinite alternate ease-in-out;
+            text-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
+            z-index: 10;
+        }
+        @keyframes pulseText {
+            0% { opacity: 0.3; transform: translateX(-50%) scale(0.95); }
+            100% { opacity: 1; transform: translateX(-50%) scale(1.05); }
+        }
+        #scanlines {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.2) 50%,
+                rgba(0,0,0,0.2)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 5;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden select-none bg-black">
+
+    <div id="canvas-container" class="absolute inset-0 w-full h-full cursor-crosshair"></div>
+    <div id="scanlines"></div>
+    <div class="warp-prompt"></div>
+
+    <script>
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        const tunnelDepth = 2000;
+        scene.fog = new THREE.Fog(0x010004, 100, tunnelDepth * 0.85);
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, tunnelDepth + 500);
+        camera.position.set(0, 0, 50);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+        const points = [];
+        const resolution = 150;
+        for (let i = 0; i <= Math.PI * 2; i += (Math.PI * 2) / resolution) {
+            const x = 16 * Math.pow(Math.sin(i), 3);
+            const y = 13 * Math.cos(i) - 5 * Math.cos(2 * i) - 2 * Math.cos(3 * i) - Math.cos(4 * i);
+            points.push(new THREE.Vector3(x, y, 0));
+        }
+        points.push(points[0]);
+        const heartGeometry = new THREE.BufferGeometry().setFromPoints(points);
+        const ringCount = 180;
+        const rings = [];
+        const colorPink = new THREE.Color(0xff0055);
+        const colorCyan = new THREE.Color(0x00f0ff);
+        const colorPurple = new THREE.Color(0x7b2cbf);
+
+        for (let i = 0; i < ringCount; i++) {
+            const material = new THREE.LineBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.85,
+                blending: THREE.AdditiveBlending,
+                linewidth: 2
+            });
+
+            const ring = new THREE.Line(heartGeometry, material);
+            ring.position.z = - (i / ringCount) * tunnelDepth;
+            ring.userData = { 
+                index: i,
+                baseScale: 1.2 + (Math.random() * 0.2)
+            };
+            scene.add(ring);
+            rings.push(ring);
+        }
+
+        const starCount = 1000;
+        const starGeo = new THREE.BufferGeometry();
+        const starPos = [];
+        for(let i=0; i<starCount; i++) {
+            starPos.push(
+                (Math.random() - 0.5) * 400,
+                (Math.random() - 0.5) * 400, 
+                -(Math.random() * tunnelDepth)
+            );
+        }
+        starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+        const starMat = new THREE.PointsMaterial({
+            color: 0xffffff,
+            size: 1.5,
+            transparent: true,
+            opacity: 0.6,
+            blending: THREE.AdditiveBlending
+        });
+        const starSystem = new THREE.Points(starGeo, starMat);
+        scene.add(starSystem);
+        let speed = 3.0;
+        let targetSpeed = 3.0;
+        let targetFov = 60;
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetCameraX = 0;
+        let targetCameraY = 0;
+        const windowHalfX = window.innerWidth / 2;
+        const windowHalfY = window.innerHeight / 2;
+        const clock = new THREE.Clock();
+        window.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX - windowHalfX) * 0.05;
+            mouseY = (e.clientY - windowHalfY) * 0.05;
+        });
+        window.addEventListener('mousedown', () => {
+            targetSpeed = 35.0;
+            targetFov = 110;
+        });
+        window.addEventListener('mouseup', () => {
+            targetSpeed = 3.0;
+            targetFov = 60;
+        });
+        window.addEventListener('touchstart', (e) => {
+            if(e.touches.length > 0) {
+                mouseX = (e.touches[0].clientX - windowHalfX) * 0.05;
+                mouseY = (e.touches[0].clientY - windowHalfY) * 0.05;
+                targetSpeed = 35.0;
+                targetFov = 110;
+            }
+        });
+        window.addEventListener('touchend', () => {
+            targetSpeed = 3.0;
+            targetFov = 60;
+        });
+        window.addEventListener('touchmove', (e) => {
+            if(e.touches.length > 0) {
+                mouseX = (e.touches[0].clientX - windowHalfX) * 0.05;
+                mouseY = (e.touches[0].clientY - windowHalfY) * 0.05;
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+            const delta = clock.getDelta();
+            speed += (targetSpeed - speed) * 0.05;
+            camera.fov += (targetFov - camera.fov) * 0.08;
+            camera.updateProjectionMatrix();
+            targetCameraX = mouseX;
+            targetCameraY = -mouseY;
+            camera.position.x += (targetCameraX - camera.position.x) * 0.05;
+            camera.position.y += (targetCameraY - camera.position.y) * 0.05;
+            camera.rotation.z = -camera.position.x * 0.02;
+            rings.forEach((ring) => {
+                ring.position.z += speed;
+                if (ring.position.z > 60) {
+                    ring.position.z -= tunnelDepth;
+                }
+                const depthRatio = Math.abs(ring.position.z) / tunnelDepth;
+                const twist = Math.sin(elapsedTime * 0.8 + ring.position.z * 0.002) * 1.5;
+                ring.rotation.z = twist;
+                ring.position.x = Math.sin(elapsedTime + ring.position.z * 0.005) * 8 * depthRatio;
+                ring.position.y = Math.cos(elapsedTime * 1.2 + ring.position.z * 0.004) * 8 * depthRatio;
+                const beat = Math.pow(Math.max(0, Math.sin(elapsedTime * 4 + ring.position.z * 0.01)), 8);
+                const s = ring.userData.baseScale + beat * 0.5;
+                ring.scale.set(s, s, s);
+                const colorLerp1 = (Math.sin(elapsedTime * 2 + ring.position.z * 0.01) + 1) / 2;
+                const colorLerp2 = (Math.cos(elapsedTime * 1.5 + ring.position.z * 0.008) + 1) / 2;
+                let mixColor = colorPink.clone().lerp(colorPurple, colorLerp1);
+                mixColor.lerp(colorCyan, colorLerp2);
+                ring.material.color = mixColor;
+                if(ring.position.z > 20) {
+                    ring.material.opacity = Math.max(0, 0.85 - (ring.position.z - 20) * 0.05);
+                } else {
+                    ring.material.opacity = 0.85;
+                }
+            });
+
+            const positions = starSystem.geometry.attributes.position.array;
+            for(let i = 0; i < starCount * 3; i += 3) {
+                positions[i + 2] += speed * 1.5;
+                if(positions[i + 2] > 50) {
+                    positions[i + 2] -= tunnelDepth;
+                    positions[i] = (Math.random() - 0.5) * 400;     
+                    positions[i + 1] = (Math.random() - 0.5) * 400; 
+                }
+            }
+            starSystem.geometry.attributes.position.needsUpdate = true;
+            starSystem.rotation.z = Math.sin(elapsedTime * 0.2) * 0.2;
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
