@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #030005;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+</style>
+</head>
+<body>
+<canvas id="heart-canvas"></canvas>
+<script>
+const canvas = document.getElementById("heart-canvas");
+const ctx = canvas.getContext("2d");
+let width, height;
+function resize() {
+    width = canvas.width = innerWidth;
+    height = canvas.height = innerHeight;
+}
+
+addEventListener("resize", resize);
+resize();
+let angleX = 0;
+let angleY = 0;
+let isDragging = false;
+let lastX = 0;
+let lastY = 0;
+const particles = [];
+const fireflies = [];
+const timeStep = 0.03;
+for (let i = 0; i < 15000; i++) {
+    const t = Math.random() * Math.PI * 2;
+    particles.push({
+        x: (Math.random() - 0.5) * width * 1.5,
+        y: (Math.random() - 0.5) * height * 1.5,
+        z: (Math.random() - 0.5) * 1000,
+        targetX: 16 * Math.pow(Math.sin(t), 3) * 19,
+        targetY:
+            -(
+                13 * Math.cos(t) -
+                5 * Math.cos(2 * t) -
+                2 * Math.cos(3 * t) -
+                Math.cos(4 * t)
+            ) * 19,
+
+        targetZ: (Math.random() - 0.5) * 228,
+        color: `hsl(${Math.random() * 50 + 325},100%,${Math.random() * 40 + 50}%)`,
+        size: Math.random() * 2.2 + 0.8,
+        progress: 0,
+        assembleSpeed: Math.random() * 0.001 + 0.003,
+        offset: Math.random() * Math.PI * 2
+    });
+}
+
+for (let i = 0; i < 150; i++) {
+    fireflies.push({
+        x: (Math.random() - 0.5) * 1000,
+        y: (Math.random() - 0.5) * 1000,
+        z: (Math.random() - 0.5) * 1000,
+        size: Math.random() * 1.5 + 0.5,
+        alpha: Math.random()
+    });
+}
+function start(x, y) {
+    isDragging = true;
+    lastX = x;
+    lastY = y;
+}
+function move(x, y) {
+    if (!isDragging) return;
+    angleY += (x - lastX) * 0.007;
+    angleX += (y - lastY) * 0.007;
+    lastX = x;
+    lastY = y;
+}
+addEventListener("mousedown", e => start(e.clientX, e.clientY));
+addEventListener("mousemove", e => move(e.clientX, e.clientY));
+addEventListener("mouseup", () => (isDragging = false));
+addEventListener("touchstart", e => {
+    if (e.touches.length === 1) {
+        start(e.touches[0].clientX, e.touches[0].clientY);
+    }
+});
+
+addEventListener("touchmove", e => {
+    if (e.touches.length === 1) {
+        move(e.touches[0].clientX, e.touches[0].clientY);
+    }
+});
+
+addEventListener("touchend", () => (isDragging = false));
+let time = 0;
+function animate() {
+    ctx.fillStyle = "rgba(3,0,5,0.2)";
+    ctx.fillRect(0, 0, width, height);
+    const cx = width / 2;
+    const cy = height / 2;
+    time += timeStep;
+
+    fireflies.forEach(f => {
+        f.z -= 0.4;
+        if (f.z < -500) f.z = 500;
+        const scale = 400 / (400 + f.z);
+        const x = f.x * scale + cx;
+        const y = f.y * scale + cy;
+        if (x >= 0 && x <= width && y >= 0 && y <= height) {
+            ctx.fillStyle = `rgba(255,180,220,${
+                Math.abs(Math.sin(time + f.alpha)) * 0.4
+            })`;
+            ctx.fillRect(x, y, f.size * scale, f.size * scale);
+        }
+    });
+
+    const cosX = Math.cos(angleX);
+    const sinX = Math.sin(angleX);
+    const cosY = Math.cos(angleY);
+    const sinY = Math.sin(angleY);
+    particles.forEach(p => {
+        if (p.progress < 1) {
+            p.progress += p.assembleSpeed;
+
+            if (p.progress > 1) p.progress = 1;
+        }
+
+        const progress = 1 - Math.pow(1 - p.progress, 3);
+        const bx = p.x + (p.targetX - p.x) * progress;
+        const by = p.y + (p.targetY - p.y) * progress;
+        const bz = p.z + (p.targetZ - p.z) * progress;
+        const wave =
+            p.progress >= 1
+                ? Math.sin(time * 2 + p.offset) * 0.06 + 1
+                : 1;
+        const px = bx * wave;
+        const py = by * wave;
+        const pz = bz * wave;
+        const y1 = py * cosX - pz * sinX;
+        const z1 = py * sinX + pz * cosX;
+        const x2 = px * cosY + z1 * sinY;
+        const z2 = -px * sinY + z1 * cosY;
+        const perspective = 500 / (500 + z2);
+        ctx.beginPath();
+        ctx.arc(
+            x2 * perspective + cx,
+            y1 * perspective + cy,
+            Math.max(0.6, p.size * perspective),
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fillStyle = p.color;
+        ctx.fill();
+    });
+    requestAnimationFrame(animate);
+}
+animate();
+</script>
+</body>
+</html>
