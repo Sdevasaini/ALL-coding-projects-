@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fractal Kaleidoscope</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0f0f0f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="kaleidoscope"></canvas>
+
+    <script>
+        const settings = {
+            size: 150,
+            angle: 0.4,
+            scale: 0.67,
+            iterations: 10,
+            animate: true,
+            speed: 0.3,
+            offset: 0,
+            slices: 13
+        };
+
+        let width, height;
+        const canvas = document.getElementById('kaleidoscope');
+        const context = canvas.getContext('2d');
+        const bufferCanvas = document.createElement('canvas');
+        const bufferContext = bufferCanvas.getContext('2d');
+        window.addEventListener('resize', resize);
+        resize();
+
+        function resize() {
+            width = bufferCanvas.width = canvas.width = window.innerWidth;
+            height = bufferCanvas.height = canvas.height = window.innerHeight;
+            bufferContext.translate(width * 0.5, height);
+            bufferContext.strokeStyle = '#c3c3c3';
+        }
+
+        function draw() {
+            requestAnimationFrame(draw);
+
+            if (settings.animate) {
+                settings.angle += 0.02 * settings.speed;
+            }
+
+            const points = [];
+            bufferContext.save();
+            bufferContext.setTransform(1, 0, 0, 1, 0, 0);
+            bufferContext.clearRect(0, 0, width, height);
+            bufferContext.restore();
+            bufferContext.beginPath();
+            bufferContext.moveTo(0, 0);
+            bufferContext.lineTo(0, -settings.size * settings.scale);
+            bufferContext.stroke();
+
+            drawShape({
+                x: 0, 
+                y: -settings.size * settings.scale, 
+                angle: -Math.PI * 0.5, 
+                size: settings.size
+            });
+
+            for (let i = 0; i < settings.iterations; i++) {
+                for (let j = points.length - 1; j >= 0; j--) {
+                    drawShape(points.pop());
+                }
+            }
+
+            function drawShape(point) {
+                drawBranch(point, 1); 
+                drawBranch(point, -1); 
+            }
+
+            function drawBranch(point, direction) {
+                const angle = point.angle + (settings.angle * direction + settings.offset);
+                const size = point.size * settings.scale;
+                const x = point.x + Math.cos(angle) * size;
+                const y = point.y + Math.sin(angle) * size;
+
+                bufferContext.beginPath();
+                bufferContext.moveTo(point.x, point.y);
+                bufferContext.lineTo(x, y);
+                bufferContext.stroke();
+
+                points.unshift({ x: x, y: y, angle: angle, size: size });
+            }
+
+            const side1 = width * 0.5;
+            const side2 = height * 0.5;
+            const radius = Math.sqrt(side1 * side1 + side2 * side2);
+            bufferContext.globalCompositeOperation = 'destination-in';
+            bufferContext.fillStyle = 'red';
+            bufferContext.beginPath();
+            bufferContext.arc(0, 0, radius, -(Math.PI * 0.5 + (Math.PI / settings.slices)), -(Math.PI * 0.5 - (Math.PI / settings.slices)));
+            bufferContext.lineTo(0, 0);
+            bufferContext.closePath();
+            bufferContext.fill();
+            bufferContext.globalCompositeOperation = 'source-over';
+            context.setTransform(1, 0, 0, 1, 0, 0);
+            context.clearRect(0, 0, width, height);
+            context.translate(width * 0.5, height * 0.5);
+            
+            for (let i = 0; i < settings.slices; i++) {
+                context.rotate(Math.PI * 2 / settings.slices);
+                context.drawImage(bufferCanvas, -width * 0.5, -height);
+            }
+        }
+
+        window.onload = function() {
+            draw();
+        };
+    </script>
+</body>
+</html>
